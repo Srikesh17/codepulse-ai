@@ -52,6 +52,7 @@ export function AuthProvider({ children }) {
         // Unauthenticated or backend offline - user remains null
         if (isMounted) {
           setUser(null);
+          localStorage.removeItem('codepulse_token');
         }
       } finally {
         if (isMounted) {
@@ -65,9 +66,14 @@ export function AuthProvider({ children }) {
     // Listen for 401 events emitted by the API client
     const handleSessionExpired = () => {
       if (isMounted) {
-        setUser(null);
+        setUser((currentUser) => {
+          if (currentUser && !currentUser.isDemo) {
+            setSessionExpiredNotice(true);
+          }
+          return null;
+        });
         localStorage.removeItem('codepulse_demo_mode');
-        setSessionExpiredNotice(true);
+        localStorage.removeItem('codepulse_token');
       }
     };
     window.addEventListener('codepulse:session-expired', handleSessionExpired);
@@ -84,12 +90,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('codepulse_demo_mode');
     try {
       const response = await authApi.register({ fullName, email, password });
+      if (response?.token) {
+        localStorage.setItem('codepulse_token', response.token);
+      }
       const authenticatedUser = {
         ...response.user,
         name: response.user.fullName,
         isDemo: false,
       };
       setUser(authenticatedUser);
+      setSessionExpiredNotice(false);
       setLoading(false);
       return { success: true, user: authenticatedUser };
     } catch (err) {
@@ -104,12 +114,16 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('codepulse_demo_mode');
     try {
       const response = await authApi.login({ email, password });
+      if (response?.token) {
+        localStorage.setItem('codepulse_token', response.token);
+      }
       const authenticatedUser = {
         ...response.user,
         name: response.user.fullName,
         isDemo: false,
       };
       setUser(authenticatedUser);
+      setSessionExpiredNotice(false);
       setLoading(false);
       return { success: true, user: authenticatedUser };
     } catch (err) {
@@ -134,6 +148,7 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     setLoading(true);
     localStorage.removeItem('codepulse_demo_mode');
+    localStorage.removeItem('codepulse_token');
     try {
       if (user && !user.isDemo) {
         await authApi.logout();
