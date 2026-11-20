@@ -28,6 +28,19 @@ export class StatisticsRepository {
       lastPracticeDate: row.last_practice_date,
     };
   }
+
+  async incrementTotalAttempts(userId) {
+    const res = await query(
+      `INSERT INTO student_statistics (user_id, total_attempts)
+       VALUES ($1, 1)
+       ON CONFLICT (user_id)
+       DO UPDATE SET total_attempts = student_statistics.total_attempts + 1,
+                     updated_at = NOW()
+       RETURNING user_id, problems_solved, total_attempts, hints_used, current_streak`,
+      [userId]
+    );
+    return res.rows[0];
+  }
 }
 
 export const statisticsRepository = new StatisticsRepository();

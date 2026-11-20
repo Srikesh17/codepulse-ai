@@ -47,6 +47,14 @@ export async function apiClient(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorMessage = data?.error || data?.message || `Request failed with status ${response.status}`;
+
+      // On 401, clear any stale demo flag so the app doesn't loop in a broken state.
+      if (response.status === 401) {
+        localStorage.removeItem('codepulse_demo_mode');
+        // Dispatch a custom event so AuthContext can react (e.g. redirect to login)
+        window.dispatchEvent(new CustomEvent('codepulse:session-expired'));
+      }
+
       throw new ApiError(errorMessage, response.status, data?.details);
     }
 

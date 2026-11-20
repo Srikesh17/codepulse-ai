@@ -11,53 +11,38 @@ CodePulse AI is a modern full-stack web platform designed to eliminate passive p
 - **Frontend:** [Vercel](https://vercel.com)
 - **Backend:** [Render](https://render.com)
 - **Database:** [Supabase PostgreSQL](https://supabase.com)
-- **Current Milestone:** **Phase 2 of 7** — Backend Foundation, Real Authentication, PostgreSQL Integration, and Student Profiles.
+- **Current Milestone:** **Phase 3 of 7** — Coding Problem Catalog, Monaco Editor, Practice Sessions, and Attempt Tracking.
 
 ---
 
-## ✨ Features Implemented in Phase 2
+## ✨ Features Implemented
 
-### 1. Real Authentication System (Express + PostgreSQL)
-- **Registration (`POST /api/auth/register`):**
-  - Schema validation with Zod enforcing minimum lengths and character sets.
-  - Email normalization and duplicate detection (409 Conflict).
-  - Password hashing via bcrypt with 12 salt rounds.
-  - Atomic database transactions creating the user, default profile, and initial statistics.
-  - JWT generation set in an `HttpOnly` cookie.
-- **Login (`POST /api/auth/login`):**
-  - Verification via bcrypt against database hashes.
-  - Generic 401 error message for security.
-  - Rate limiting to protect against brute force attacks.
-- **Session Restoration (`GET /api/auth/me`):**
-  - Automatic session hydration on page refresh.
-  - Loader state prevents screen flicker.
-- **Logout (`POST /api/auth/logout`):**
-  - Invalidation of HttpOnly cookie and audit logging.
-- **Guest Demo Mode:**
-  - Preserved "Explore Demo" option clearly labeled as a guest preview and isolated from production API endpoints.
+### Phase 3: Coding Problem Catalog, Monaco Editor, and Practice Sessions
+- **PostgreSQL Problem Catalog (`problems` table):**
+  - Database schema (`database/migrations/005_problems.sql`) with difficulty checks, GIN indexing on topics array, and unique slug keys.
+  - 13 original coding problems across core algorithmic patterns seeded via `database/seed_problems.js`.
+  - Backend API: `GET /api/problems` (with search, difficulty, and topic filters) and `GET /api/problems/:slug`.
+- **Practice Sessions & Code Persistence:**
+  - `practice_sessions` table (`database/migrations/006_practice_sessions.sql`) tracking active, paused, and completed sessions.
+  - `code_drafts` table (`database/migrations/007_code_drafts.sql`) with monotonic versioning for concurrency control.
+  - `practice_attempts` table (`database/migrations/008_practice_attempts.sql`) storing manual snapshots as `not_evaluated`.
+- **Autosave Engine & Custom Hook (`useCodeDraft`):**
+  - 1.5-second debounced autosave on keystrokes.
+  - Keyboard shortcut `Ctrl+S` / `Cmd+S` immediate flush.
+  - Stale write detection: returns HTTP 409 Conflict when client version falls behind stored version.
+  - Reset to starter code with confirmation dialog.
+- **Frontend Integration:**
+  - Modernized `ProblemsPage.jsx` and `PracticePage.jsx` connected to real backend APIs with graceful fallback.
+  - Clear user messaging: Code execution clearly scheduled for Phase 5 sandbox; AI hints scheduled for Phase 4.
+  - Resolved Phase 2 bugs: prevented demo user overwrite of real authenticated sessions, and handled 401 unauthenticated transitions smoothly.
+- **Automated Verification:**
+  - Comprehensive 25-test suite across Phase 2 and Phase 3 passing in Vitest.
+  - Clean Vite production build with zero errors.
 
-### 2. PostgreSQL Relational Database Schema (`database/migrations/`)
-- `001_users.sql`: User credentials and authentication identity.
-- `002_user_profiles.sql`: Student learning goals, preferred programming languages, and bios.
-- `003_user_activity.sql`: Audit trails and practice activity stream with compound indexing.
-- `004_student_statistics.sql`: Real statistics counters initialized to zero for new accounts.
-- `database/migrate.js`: Safe, idempotent migration runner script.
-
-### 3. Connected Student Dashboard (`/dashboard`)
-- Real authenticated student display name.
-- Real statistics fetched via `GET /api/dashboard/overview` displaying zero metrics for new accounts.
-- Activity stream fetched via `GET /api/dashboard/activity` scoped strictly to the authenticated user.
-- Loading skeletons, empty states, and error retry handling.
-
-### 4. Student Profile Management (`/profile`)
-- `GET /api/users/me` and `PATCH /api/users/me`.
-- Update display name, preferred programming language, learning goal, and bio.
-- Persistent changes saved in PostgreSQL.
-
-### 5. Application Security & Route Protection
-- Protected routes guard private pages (`/dashboard`, `/problems`, `/practice/:id`, `/analytics`, `/profile`) with redirect memory (`state: { from: location }`).
-- Helmet headers, CORS credentials support, CSRF mitigation, and centralized error logging.
-- Toast notification system for user feedback.
+### Phase 2: Real Authentication & Student Profiles
+- **Registration & Login:** Express REST APIs backed by Supabase PostgreSQL, bcryptjs (12 salt rounds), and JWT in HttpOnly cookies.
+- **Session Hydration:** Persistent sessions via `GET /api/auth/me`.
+- **Student Dashboard:** Real metrics, activity logging, and profile management.
 - Automated test suite with 13 Vitest/Supertest tests passing.
 
 ---

@@ -62,8 +62,19 @@ export function AuthProvider({ children }) {
 
     checkCurrentSession();
 
+    // Listen for 401 events emitted by the API client
+    const handleSessionExpired = () => {
+      if (isMounted) {
+        setUser(null);
+        localStorage.removeItem('codepulse_demo_mode');
+        setSessionExpiredNotice(true);
+      }
+    };
+    window.addEventListener('codepulse:session-expired', handleSessionExpired);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('codepulse:session-expired', handleSessionExpired);
     };
   }, []);
 
@@ -108,7 +119,12 @@ export function AuthProvider({ children }) {
   };
 
   // Instant Guest Demo Mode (explicitly marked isDemo: true)
+  // BUG FIX: Do NOT overwrite a real authenticated user with the demo account.
   const exploreDemo = () => {
+    if (user && !user.isDemo) {
+      // Real user is already logged in — redirect them to their dashboard instead
+      return user;
+    }
     localStorage.setItem('codepulse_demo_mode', 'true');
     setUser(DEMO_USER);
     return DEMO_USER;

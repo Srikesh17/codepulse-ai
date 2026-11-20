@@ -7,6 +7,8 @@ import { checkDatabaseHealth } from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
+import problemRoutes from './routes/problem.routes.js';
+import sessionRoutes from './routes/session.routes.js';
 import { notFoundHandler, errorHandler } from './middleware/error.middleware.js';
 
 export function createApp() {
@@ -84,6 +86,8 @@ export function createApp() {
   app.use('/api/auth', authRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/problems', problemRoutes);
+  app.use('/api/sessions', sessionRoutes);
 
   // 404 & Central Error Handling
   app.use(notFoundHandler);

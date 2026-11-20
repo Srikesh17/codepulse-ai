@@ -1,0 +1,19 @@
+{
+  "name": "database",
+  "version": "1.0.0",
+  "description": "PostgreSQL relational database schema for CodePulse AI. Hosted on Supabase / PostgreSQL.",
+  "type": "module",
+  "main": "migrate.js",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "seed": "node seed_problems.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "pg": "^8.23.1"
+  }
+}

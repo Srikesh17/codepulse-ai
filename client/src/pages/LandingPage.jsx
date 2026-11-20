@@ -28,7 +28,7 @@ import { useAuth } from '../context/AuthContext';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { exploreDemo } = useAuth();
+  const { exploreDemo, isAuthenticated } = useAuth();
 
   const handleStartDemo = () => {
     exploreDemo();
@@ -95,15 +95,28 @@ export default function LandingPage() {
                   Explore Features
                 </Button>
               </a>
-              <Button
-                variant="subtle"
-                size="lg"
-                onClick={handleStartDemo}
-                className="w-full sm:w-auto text-emerald-300"
-                leftIcon={<Sparkles className="w-4 h-4 text-emerald-400" />}
-              >
-                Explore Demo
-              </Button>
+              {isAuthenticated ? (
+                <Link to="/dashboard" className="w-full sm:w-auto">
+                  <Button
+                    variant="subtle"
+                    size="lg"
+                    className="w-full sm:w-auto text-emerald-300"
+                    rightIcon={<ArrowRight className="w-4 h-4" />}
+                  >
+                    Go to Workspace
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  variant="subtle"
+                  size="lg"
+                  onClick={handleStartDemo}
+                  className="w-full sm:w-auto text-emerald-300"
+                  leftIcon={<Sparkles className="w-4 h-4 text-emerald-400" />}
+                >
+                  Explore Demo
+                </Button>
+              )}
             </div>
 
             {/* Quick trust metrics */}

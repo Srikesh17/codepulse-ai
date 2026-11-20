@@ -25,10 +25,31 @@
          ├── users (UUID, Email, Password Hash)
          ├── user_profiles (Languages, Learning Goals, Bio)
          ├── user_activity (Audit Logs & Practice Stream)
-         └── student_statistics (Problems Solved, Attempts, Hints, Streak)
+         ├── student_statistics (Problems Solved, Attempts, Hints, Streak)
+         ├── problems (Slug, Title, Difficulty, Topics, Starter Code, Constraints)
+         ├── practice_sessions (User, Problem, Status, Active Timestamps)
+         ├── code_drafts (Session ID, Code, Monotonic Version, Language)
+         └── practice_attempts (Session ID, Snapshot, Type, Evaluation Status)
 ```
 
-### 2. Authentication Flow & Security Model
+### 2. Practice Sessions, Autosave & Concurrency Model (Phase 3)
+
+1. **Problem Catalog Access:**
+   - Client queries `GET /api/problems?search=&difficulty=&topic=&page=&limit=`.
+   - Results are filtered and indexed (GIN indexing on `topics`, B-tree on `difficulty`).
+2. **Session Lifecycle:**
+   - Starting a practice problem issues `POST /api/sessions` with `{ problemId }`.
+   - Idempotent: returns existing active/paused session if one exists, or creates a new session seeded with the problem's starter code at `version = 1`.
+3. **Autosave Engine (`useCodeDraft`):**
+   - Keystrokes in Monaco trigger a 1.5-second debounced autosave via `PUT /api/sessions/:sessionId/draft`.
+   - Explicit saves via `Ctrl+S` / `Cmd+S` bypass debounce and immediately flush.
+   - Optimistic concurrency control: if the client's submitted version is lower than the stored version, backend returns `409 Conflict`, guarding against multi-tab race conditions.
+4. **Manual Attempt Snapshots:**
+   - Submissions trigger `POST /api/sessions/:sessionId/attempts` with `attemptType: 'manual_snapshot'`.
+   - Stored with `evaluation_status: 'not_evaluated'`.
+   - Increments `student_statistics.total_attempts` while guaranteeing `problems_solved` remains strictly at `0` until code execution verification is added in Phase 5.
+
+### 3. Authentication Flow & Security Model
 
 1. **Registration:**
    - Client sends `fullName`, `email`, `password` to `POST /api/auth/register`.
