@@ -1,99 +1,144 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../services/authApi';
 
 const AuthContext = createContext(null);
 
 const DEMO_USER = {
-  id: 'usr_demo_402',
-  name: 'Alex Rivera',
+  id: 'usr_demo_guest',
+  name: 'Alex Rivera (Guest Demo)',
+  fullName: 'Alex Rivera (Guest Demo)',
   email: 'alex.rivera@codepulse.ai',
   avatarUrl: null,
-  role: 'Student (Demo)',
+  role: 'Guest Student (Demo Preview)',
   isDemo: true,
-  joinedDate: 'October 2024',
+  preferredLanguage: 'python',
+  learningGoal: 'Explore Socratic Guidance (Demo)',
+  bio: 'Exploring CodePulse AI frontend features.',
   problemsSolved: 14,
   streakDays: 5,
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const saved = localStorage.getItem('codepulse_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
 
+  // Check active session on initial page load / refresh via GET /api/auth/me
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('codepulse_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('codepulse_user');
+    let isMounted = true;
+
+    async function checkCurrentSession() {
+      // Check if user was in guest demo mode
+      const demoFlag = localStorage.getItem('codepulse_demo_mode');
+      if (demoFlag === 'true') {
+        if (isMounted) {
+          setUser(DEMO_USER);
+          setInitialLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await authApi.getMe();
+        if (isMounted && response?.user) {
+          setUser({
+            ...response.user,
+            name: response.user.fullName || response.user.name,
+            isDemo: false,
+          });
+        }
+      } catch (err) {
+        // Unauthenticated or backend offline - user remains null
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setInitialLoading(false);
+        }
+      }
     }
-  }, [user]);
 
-  // Demo Login
-  const login = async (email, password, rememberMe = false) => {
-    setLoading(true);
-    // Simulate slight network delay for realistic UI state
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    checkCurrentSession();
 
-    // Simulated student user
-    const newUser = {
-      id: 'usr_' + Math.random().toString(36).substring(2, 9),
-      name: email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Demo Student',
-      email: email,
-      avatarUrl: null,
-      role: 'Student (Frontend Demo)',
-      isDemo: true,
-      joinedDate: 'November 2026',
-      problemsSolved: 8,
-      streakDays: 3,
-      rememberMe,
+    return () => {
+      isMounted = false;
     };
+  }, []);
 
-    setUser(newUser);
-    setLoading(false);
-    return { success: true, user: newUser };
-  };
-
-  // Demo Signup
+  // Real Backend Registration
   const signup = async (fullName, email, password) => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 600));
-
-    const newUser = {
-      id: 'usr_' + Math.random().toString(36).substring(2, 9),
-      name: fullName.trim(),
-      email: email.trim(),
-      avatarUrl: null,
-      role: 'Student (Frontend Demo)',
-      isDemo: true,
-      joinedDate: 'November 2026',
-      problemsSolved: 0,
-      streakDays: 1,
-    };
-
-    setUser(newUser);
-    setLoading(false);
-    return { success: true, user: newUser };
+    localStorage.removeItem('codepulse_demo_mode');
+    try {
+      const response = await authApi.register({ fullName, email, password });
+      const authenticatedUser = {
+        ...response.user,
+        name: response.user.fullName,
+        isDemo: false,
+      };
+      setUser(authenticatedUser);
+      setLoading(false);
+      return { success: true, user: authenticatedUser };
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
   };
 
-  // Instant 1-Click Explore Demo
+  // Real Backend Login
+  const login = async (email, password) => {
+    setLoading(true);
+    localStorage.removeItem('codepulse_demo_mode');
+    try {
+      const response = await authApi.login({ email, password });
+      const authenticatedUser = {
+        ...response.user,
+        name: response.user.fullName,
+        isDemo: false,
+      };
+      setUser(authenticatedUser);
+      setLoading(false);
+      return { success: true, user: authenticatedUser };
+    } catch (err) {
+      setLoading(false);
+      throw err;
+    }
+  };
+
+  // Instant Guest Demo Mode (explicitly marked isDemo: true)
   const exploreDemo = () => {
+    localStorage.setItem('codepulse_demo_mode', 'true');
     setUser(DEMO_USER);
     return DEMO_USER;
   };
 
-  // Logout
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('codepulse_user');
+  // Real Backend Logout
+  const logout = async () => {
+    setLoading(true);
+    localStorage.removeItem('codepulse_demo_mode');
+    try {
+      if (user && !user.isDemo) {
+        await authApi.logout();
+      }
+    } catch (err) {
+      // Even if backend fails, clear client state
+      console.warn('Logout network notice:', err.message);
+    } finally {
+      setUser(null);
+      setLoading(false);
+    }
   };
 
   const updateProfile = (updates) => {
-    setUser((prev) => (prev ? { ...prev, ...updates } : null));
+    setUser((prev) => (prev ? { ...prev, ...updates, name: updates.fullName || prev.name } : null));
+  };
+
+  const triggerSessionExpired = () => {
+    setUser(null);
+    localStorage.removeItem('codepulse_demo_mode');
+    setSessionExpiredNotice(true);
   };
 
   return (
@@ -101,12 +146,16 @@ export function AuthProvider({ children }) {
       value={{
         user,
         isAuthenticated: !!user,
+        isDemo: !!user?.isDemo,
+        initialLoading,
         loading,
         login,
         signup,
         exploreDemo,
         logout,
         updateProfile,
+        sessionExpiredNotice,
+        setSessionExpiredNotice,
       }}
     >
       {children}

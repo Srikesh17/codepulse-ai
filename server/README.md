@@ -1,26 +1,60 @@
-# CodePulse AI — Backend Server (Phase 2)
+# CodePulse AI — Backend Server (Phase 2 Foundation)
 
-This directory is reserved for the Express.js REST API service, to be implemented in **Phase 2** of the CodePulse AI project roadmap.
+Node.js & Express.js REST API service for CodePulse AI — Socratic Coding & Retention Coach.
 
-## Planned Technology Stack
+## Features Implemented in Phase 2
 
-- **Runtime:** Node.js + Express.js
-- **Language:** JavaScript / TypeScript
-- **Authentication:** JWT (JSON Web Tokens) with HTTP-only cookies
-- **Password Hashing:** `bcryptjs`
-- **Validation:** `zod` schema validation
-- **Database Client:** `pg` / Prisma ORM with connection pooling
-- **AI Integration:** Google Gemini API SDK (`@google/genai`)
+- **Authentication System:**
+  - Secure registration (`POST /api/auth/register`) with Zod input validation, 12-round bcrypt password hashing, automatic profile creation, and default statistics initialization.
+  - Login (`POST /api/auth/login`) with credential verification and signed JWT issuance.
+  - HttpOnly Cookie session storage (`codepulse_token`) with configurable `SameSite` and `Secure` flags.
+  - Session restoration (`GET /api/auth/me`) for persistent authentication across browser refreshes.
+  - Logout (`POST /api/auth/logout`) with cookie invalidation.
+- **Student Profile Management:**
+  - `GET /api/users/me` — Fetch full profile and account details.
+  - `PATCH /api/users/me` — Update display name, preferred programming language, learning goal, and bio.
+- **Connected Student Dashboard:**
+  - `GET /api/dashboard/overview` — Real PostgreSQL-backed statistics (problems solved, total attempts, hints used, streak) initialized to zero for new accounts.
+  - `GET /api/dashboard/activity` — Authenticated activity stream scoped strictly to the current user.
+- **Security & Reliability:**
+  - `helmet` security headers.
+  - `cors` with credential support and origin validation.
+  - `express-rate-limit` for authentication brute-force prevention.
+  - CSRF verification on state-changing requests.
+  - Centralized error handling and safe error responses.
+  - Health check endpoint (`GET /api/health`).
 
-## Upcoming API Endpoints (Phase 2 & 3)
+## Running Locally
 
-| Method | Endpoint | Description | Phase |
+```bash
+# 1. Install dependencies
+cd server
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your DATABASE_URL and JWT_SECRET
+
+# 3. Run migrations
+npm run migrate
+
+# 4. Start development server
+npm run dev
+
+# 5. Run automated tests
+npm test
+```
+
+## API Documentation
+
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/register` | Create student account & hash password | Phase 2 |
-| POST | `/api/auth/login` | Authenticate & issue secure session token | Phase 2 |
-| GET | `/api/auth/me` | Retrieve authenticated profile | Phase 2 |
-| GET | `/api/problems` | List problems with search & filters | Phase 2 |
-| GET | `/api/problems/:id` | Fetch problem description, starter code & test cases | Phase 2 |
-| POST | `/api/tutor/hint` | Generate Socratic hint via Gemini 2.5 Flash | Phase 3 |
-| POST | `/api/execute` | Run sandboxed Python code against test suite | Phase 4 |
-| GET | `/api/analytics` | Fetch student retention & hint trajectory metrics | Phase 5 |
+| GET | `/api/health` | Public | Service health & database connectivity check |
+| POST | `/api/auth/register` | Public | Create new student account (12-round bcrypt) |
+| POST | `/api/auth/login` | Public | Authenticate user & issue HttpOnly JWT cookie |
+| POST | `/api/auth/logout` | Required | Invalidate session cookie |
+| GET | `/api/auth/me` | Required | Retrieve current authenticated user |
+| GET | `/api/users/me` | Required | Retrieve student profile metadata |
+| PATCH | `/api/users/me` | Required | Update display name, language, goal, bio |
+| GET | `/api/dashboard/overview` | Required | Student statistics & account summary |
+| GET | `/api/dashboard/activity` | Required | Scoped student audit & practice activity |

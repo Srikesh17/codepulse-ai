@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Activity,
   ArrowRight,
@@ -15,10 +15,13 @@ import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import DemoNoticeBanner from '../components/ui/DemoNoticeBanner';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, exploreDemo, loading } = useAuth();
+  const location = useLocation();
+  const { login, exploreDemo, loading, sessionExpiredNotice, setSessionExpiredNotice } = useAuth();
+  const { showToast } = useToast();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -40,6 +43,7 @@ export default function LoginPage() {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
     if (generalError) setGeneralError('');
+    if (sessionExpiredNotice) setSessionExpiredNotice(false);
   };
 
   const validate = () => {
@@ -53,8 +57,6 @@ export default function LoginPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
     }
 
     setErrors(newErrors);
@@ -66,24 +68,32 @@ export default function LoginPage() {
     if (!validate()) return;
 
     try {
-      await login(formData.email, formData.password, formData.rememberMe);
-      navigate('/dashboard');
+      await login(formData.email, formData.password);
+      showToast('Welcome back! Successfully logged in.', 'success');
+      const destination = location.state?.from?.pathname || '/dashboard';
+      navigate(destination, { replace: true });
     } catch (err) {
-      setGeneralError('Invalid credentials or preview timeout. Please try again.');
+      if (err.status === 401) {
+        setGeneralError('Invalid email or password. Please try again.');
+      } else {
+        setGeneralError(err.message || 'Login failed. Please check credentials or backend status.');
+      }
     }
   };
 
   const handleFillDemoCreds = () => {
     setFormData({
-      email: 'alex.rivera@codepulse.ai',
-      password: 'DemoPassword123!',
+      email: 'student@example.com',
+      password: 'StrongPassword123!',
       rememberMe: true,
     });
     setErrors({});
+    setGeneralError('');
   };
 
   const handleDirectDemo = () => {
     exploreDemo();
+    showToast('Entered student workspace in Demo Preview mode.', 'info');
     navigate('/dashboard');
   };
 
@@ -107,8 +117,16 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo Mode Notice */}
-        <DemoNoticeBanner />
+        {/* Session Expired Notice */}
+        {sessionExpiredNotice && (
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>Your session has expired. Please sign in again to continue.</span>
+          </div>
+        )}
+
+        {/* Notice Banner */}
+        <DemoNoticeBanner compact />
 
         {/* Form Card */}
         <Card className="p-6 sm:p-8 space-y-6 bg-dark-900/90 border-slate-800 shadow-xl">
@@ -123,7 +141,7 @@ export default function LoginPage() {
             <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-xs text-blue-300 flex items-center gap-2">
               <Info className="w-4 h-4 shrink-0 text-blue-400" />
               <span>
-                Password reset emails will be sent via SendGrid in Phase 2. For this preview, use the demo credentials below!
+                Password reset emails will be sent via SendGrid in Phase 3. If you forgot credentials, create a new account or use Explore Demo below.
               </span>
             </div>
           )}
@@ -133,7 +151,7 @@ export default function LoginPage() {
               label="Email Address"
               type="email"
               name="email"
-              placeholder="e.g. alex.rivera@codepulse.ai"
+              placeholder="e.g. student@example.com"
               value={formData.email}
               onChange={handleChange}
               error={errors.email}
@@ -164,7 +182,7 @@ export default function LoginPage() {
                   onChange={handleChange}
                   className="rounded bg-dark-950 border-slate-700 text-emerald-500 focus:ring-emerald-400 focus:ring-offset-dark-900"
                 />
-                <span>Remember me for this session</span>
+                <span>Remember me</span>
               </label>
 
               <button
@@ -184,15 +202,15 @@ export default function LoginPage() {
               isLoading={loading}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Sign In (Demo Mode)
+              Sign In
             </Button>
           </form>
 
           {/* Quick Demo Credential Autofill */}
           <div className="p-3 rounded-lg bg-slate-800/40 border border-slate-700/60 flex items-center justify-between gap-3 text-xs">
             <div className="space-y-0.5 text-slate-400 text-[11px]">
-              <div><strong className="text-slate-300">Test Account:</strong> alex.rivera@codepulse.ai</div>
-              <div><strong className="text-slate-300">Pass:</strong> DemoPassword123!</div>
+              <div><strong className="text-slate-300">Sample Creds:</strong> student@example.com</div>
+              <div><strong className="text-slate-300">Pass:</strong> StrongPassword123!</div>
             </div>
             <button
               type="button"
@@ -209,7 +227,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-slate-800" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-dark-900 px-2 text-slate-500 font-mono">Instant Access</span>
+              <span className="bg-dark-900 px-2 text-slate-500 font-mono">Guest Mode</span>
             </div>
           </div>
 
@@ -234,7 +252,7 @@ export default function LoginPage() {
 
       {/* Footer disclaimer */}
       <div className="text-center text-xs text-slate-600 mt-8">
-        CodePulse AI Prototype • Built for Technical Demonstration
+        CodePulse AI • Phase 2 Backend Foundation & PostgreSQL
       </div>
     </div>
   );

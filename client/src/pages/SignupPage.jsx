@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Activity,
   ArrowRight,
@@ -16,21 +16,30 @@ import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 import DemoNoticeBanner from '../components/ui/DemoNoticeBanner';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signup, exploreDemo, loading } = useAuth();
+  const { showToast } = useToast();
 
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    agreeTerms: false,
+    agreeTerms: true,
   });
 
   const [errors, setErrors] = useState({});
   const [generalError, setGeneralError] = useState('');
+
+  // Password strength indicators
+  const hasMinLength = formData.password.length >= 8;
+  const hasLetter = /[A-Za-z]/.test(formData.password);
+  const hasNumber = /[0-9]/.test(formData.password);
+  const isPasswordStrong = hasMinLength && hasLetter && hasNumber;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -38,7 +47,6 @@ export default function SignupPage() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
-    // Clear error for field on change
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -62,8 +70,8 @@ export default function SignupPage() {
 
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters long';
+    } else if (!isPasswordStrong) {
+      newErrors.password = 'Password must be 8+ chars and contain both letters and numbers';
     }
 
     if (!formData.confirmPassword) {
@@ -73,7 +81,7 @@ export default function SignupPage() {
     }
 
     if (!formData.agreeTerms) {
-      newErrors.agreeTerms = 'You must agree to the preview terms';
+      newErrors.agreeTerms = 'You must agree to the terms to register';
     }
 
     setErrors(newErrors);
@@ -86,14 +94,26 @@ export default function SignupPage() {
 
     try {
       await signup(formData.fullName, formData.email, formData.password);
-      navigate('/dashboard');
+      showToast('Account created successfully! Welcome to CodePulse AI.', 'success');
+      const destination = location.state?.from?.pathname || '/dashboard';
+      navigate(destination, { replace: true });
     } catch (err) {
-      setGeneralError('Simulation error during signup. Please try again.');
+      if (err.status === 409) {
+        setErrors((prev) => ({
+          ...prev,
+          email: 'An account with this email address already exists.',
+        }));
+      } else if (err.details) {
+        setErrors(err.details);
+      } else {
+        setGeneralError(err.message || 'Registration failed. Please try again.');
+      }
     }
   };
 
   const handleQuickDemo = () => {
     exploreDemo();
+    showToast('Entered student workspace in Demo Preview mode.', 'info');
     navigate('/dashboard');
   };
 
@@ -113,12 +133,12 @@ export default function SignupPage() {
           </Link>
           <h2 className="text-2xl font-bold text-white tracking-tight">Create your student account</h2>
           <p className="text-xs text-slate-400">
-            Join the Socratic coding coach and build algorithmic intuition.
+            Real Express + PostgreSQL authentication now active.
           </p>
         </div>
 
-        {/* Demo Mode Notice */}
-        <DemoNoticeBanner />
+        {/* Notice Banner */}
+        <DemoNoticeBanner compact />
 
         {/* Form Card */}
         <Card className="p-6 sm:p-8 space-y-6 bg-dark-900/90 border-slate-800 shadow-xl">
@@ -155,19 +175,38 @@ export default function SignupPage() {
               autoComplete="email"
             />
 
-            <Input
-              label="Password"
-              type="password"
-              name="password"
-              placeholder="Min. 8 characters"
-              value={formData.password}
-              onChange={handleChange}
-              error={errors.password}
-              helperText="At least 8 characters recommended"
-              leftIcon={<Lock className="w-4 h-4" />}
-              required
-              autoComplete="new-password"
-            />
+            <div className="space-y-1.5">
+              <Input
+                label="Password"
+                type="password"
+                name="password"
+                placeholder="Min. 8 characters with letters & numbers"
+                value={formData.password}
+                onChange={handleChange}
+                error={errors.password}
+                leftIcon={<Lock className="w-4 h-4" />}
+                required
+                autoComplete="new-password"
+              />
+
+              {/* Password strength checklist */}
+              {formData.password && (
+                <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
+                  <div className={`flex items-center gap-1 ${hasMinLength ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <CheckCircle className="w-3 h-3" />
+                    <span>8+ chars</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${hasLetter ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <CheckCircle className="w-3 h-3" />
+                    <span>Letters</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${hasNumber ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    <CheckCircle className="w-3 h-3" />
+                    <span>Numbers</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <Input
               label="Confirm Password"
@@ -192,7 +231,7 @@ export default function SignupPage() {
                   className="mt-0.5 rounded bg-dark-950 border-slate-700 text-emerald-500 focus:ring-emerald-400 focus:ring-offset-dark-900"
                 />
                 <span>
-                  I acknowledge that this is a <span className="text-emerald-400 font-medium">Phase 1 Frontend Demonstration</span>. Real user authentication & PostgreSQL database will be deployed in Phase 2.
+                  I agree to create a persistent student profile backed by the CodePulse Express & PostgreSQL service.
                 </span>
               </label>
               {errors.agreeTerms && (
@@ -208,7 +247,7 @@ export default function SignupPage() {
               isLoading={loading}
               rightIcon={<ArrowRight className="w-4 h-4" />}
             >
-              Sign Up (Demo Mode)
+              Create Account
             </Button>
           </form>
 
@@ -218,7 +257,7 @@ export default function SignupPage() {
               <div className="w-full border-t border-slate-800" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-dark-900 px-2 text-slate-500 font-mono">Or skip credentials</span>
+              <span className="bg-dark-900 px-2 text-slate-500 font-mono">Or explore without account</span>
             </div>
           </div>
 
@@ -243,7 +282,7 @@ export default function SignupPage() {
 
       {/* Footer disclaimer */}
       <div className="text-center text-xs text-slate-600 mt-8">
-        CodePulse AI Prototype • Built for Technical Demonstration
+        CodePulse AI • Phase 2 Backend Foundation & PostgreSQL
       </div>
     </div>
   );
